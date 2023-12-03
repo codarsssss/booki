@@ -6,10 +6,14 @@ from aiogram.types import CallbackQuery, Message
 from database.database import user_dict_template, users_db
 from filters.filters import IsDelBookmarkCallbackData, IsDigitCallbackData
 from keyboards.bookmarks_kb import (create_bookmarks_keyboard,
-                                    create_edit_keyboard)
+                                    create_edit_keyboard,
+                                    create_pooling_keyboard,
+                                    create_sub_genres_keyboard,
+                                    create_books_keyboard)
 from keyboards.pagination_kb import create_pagination_keyboard
 from lexicon.lexicon import LEXICON
 from services.file_handling import book
+from database.database import sub_genres, genres
 
 router = Router()
 
@@ -22,6 +26,7 @@ async def process_start_command(message: Message):
     await message.answer(LEXICON[message.text])
     if message.from_user.id not in users_db:
         users_db[message.from_user.id] = deepcopy(user_dict_template)
+    await create_main_menu(message)
 
 
 # Этот хэндлер будет срабатывать на команду "/help"
@@ -95,6 +100,36 @@ async def process_forward_press(callback: CallbackQuery):
             )
         )
     await callback.answer()
+
+
+@router.message(F.data == 'choose_genre')
+async def create_main_menu(message: Message):
+    await message.answer(LEXICON['lets_polling'], reply_markup=create_pooling_keyboard())
+
+@router.callback_query(F.data == 'choose_genre')
+async def process_choose_genre(callback: CallbackQuery):
+    await callback.message.edit_text(LEXICON['lets_polling'],
+                                reply_markup=create_pooling_keyboard())
+
+
+# Этот хэндлер будет срабатывать на нажатие инлайн-кнопки "жанры"
+# во время взаимодействия пользователя с сообщением-книгой
+@router.callback_query(F.data.in_({gener for gener in genres.keys()}))
+async def process_chose_subgenre(callback: CallbackQuery):
+    await callback.message.edit_text(
+        text=LEXICON['choose_sub_genre'],
+        reply_markup=create_sub_genres_keyboard(callback.data),
+    )
+    await callback.answer(LEXICON['choose_sub_genre'])
+
+
+@router.callback_query(F.data.in_({gener for gener in sub_genres.keys()}))
+async def process_chose_book(callback: CallbackQuery):
+    await callback.message.edit_text(
+        text=LEXICON['choose_sub_genre'],
+        reply_markup=create_books_keyboard(callback.data),
+    )
+    await callback.answer(LEXICON['choose_sub_genre'])
 
 
 # Этот хэндлер будет срабатывать на нажатие инлайн-кнопки "назад"
